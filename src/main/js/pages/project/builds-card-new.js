@@ -61,6 +61,8 @@ BehaviorShim.specify(
       const params = Object.assign({}, options, {
         search: pageSearchInput.value,
         status: Array.from(selectedStatuses).join(","),
+        // Tells entries.jelly to render the new list layout instead of the side panel one
+        newBuildList: true,
       });
       const paginationOrFirst =
         buildHistoryPage.dataset.pageHasUp === "false" ||

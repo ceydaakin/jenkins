@@ -26,8 +26,9 @@ THE SOFTWARE.
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout">
   <l:userExperimentalFlag var="newJobPage" flagClassName="jenkins.model.experimentalflags.NewJobPageUserExperimentalFlag" />
 
+  <!-- Same layout choice as /hudson/widgets/HistoryWidget/entries.jelly: side panel pages keep the classic layout -->
   <j:choose>
-    <j:when test="${newJobPage}">
+    <j:when test="${newJobPage and request2.getParameter('newBuildList') == 'true'}">
       <st:include page="queue-items-new.jelly"/>
     </j:when>
     <j:otherwise>

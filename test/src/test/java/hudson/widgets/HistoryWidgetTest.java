@@ -1,8 +1,10 @@
 package hudson.widgets;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
@@ -14,8 +16,11 @@ import hudson.ExtensionList;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Job;
+import hudson.model.User;
 import java.util.List;
+import java.util.Map;
 import jenkins.model.HistoricalBuild;
+import jenkins.model.experimentalflags.UserExperimentalFlagsProperty;
 import jenkins.widgets.DescriptionHistoryPageEntryDecorator;
 import jenkins.widgets.HistoryPageEntry;
 import jenkins.widgets.HistoryPageEntryDecorator;
@@ -68,6 +73,33 @@ class HistoryWidgetTest {
             HtmlPage page = wc.goTo("job/" + p.getName());
             DomNode searchInputContainer = page.querySelector("#jenkins-builds .jenkins-search");
             assertFalse(searchInputContainer.getAttributes().getNamedItem("class").getNodeValue().contains("jenkins-hidden"));
+        }
+    }
+
+    /**
+     * Pages that still use the classic side panel (workspace, changes, rename...) show the classic build history
+     * widget, which must keep getting classic entries even when the user enabled the new job page.
+     */
+    @Test
+    @Issue("27776")
+    void sidePanelWidgetKeepsClassicEntriesWithNewJobPage() throws Exception {
+        j.jenkins.setSecurityRealm(j.createDummySecurityRealm());
+        User.getById("alice", true)
+                .addProperty(new UserExperimentalFlagsProperty(Map.of("new-job-page.flag", "true")));
+        FreeStyleProject p = j.createFreeStyleProject();
+        j.buildAndAssertSuccess(p);
+        p.scheduleBuild2(3600); // stays in the queue, so the response also carries a queue item
+
+        try (JenkinsRule.WebClient wc = j.createWebClient().login("alice")) {
+            String classic = wc.goTo("job/" + p.getName() + "/buildHistory/ajax", null).getWebResponse().getContentAsString();
+            assertThat(classic, containsString("app-builds-container__item"));
+            assertThat(classic, containsString("app-builds-container__item--not-interactable")); // classic queue item
+            assertThat(classic, not(containsString("app-temporary-list__item")));
+
+            String newList = wc.goTo("job/" + p.getName() + "/buildHistory/ajax?newBuildList=true", null)
+                    .getWebResponse().getContentAsString();
+            assertThat(newList, containsString("app-temporary-list__item"));
+            assertThat(newList, not(containsString("app-builds-container__item")));
         }
     }
 
